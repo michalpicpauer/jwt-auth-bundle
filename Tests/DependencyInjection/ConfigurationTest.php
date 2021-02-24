@@ -15,7 +15,7 @@ class ConfigurationTest extends TestCase
     public function testGetConfigWithMultipleApiIdentifier()
     {
         $configs = [
-            'domain' => 'test domain',
+            'authorized_issuer' => 'base issuer url',
             'client_secret' => 'test client secret',
             'apis' => [
                 'api1' => ['audience' => 'api1'],
@@ -25,7 +25,7 @@ class ConfigurationTest extends TestCase
 
         $this->extension->load([$configs], $this->container);
 
-        $this->assertTrue($this->container->hasParameter($this->rootNode . '.domain'));
+        $this->assertTrue($this->container->hasParameter($this->rootNode . '.authorized_issuer'));
         $this->assertTrue($this->container->hasParameter($this->rootNode . '.client_secret'));
         $this->assertTrue($this->container->has($this->rootNode . '.token_verifier.api1'));
         $this->assertTrue($this->container->has($this->rootNode . '.token_verifier.api2'));

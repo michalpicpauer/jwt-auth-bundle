@@ -1,5 +1,5 @@
 jwt_auth:
-    domain: domain
+    authorized_issuer: issuer
     apis:
         api1:
             audience: 'api.audience'

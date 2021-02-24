@@ -23,7 +23,7 @@ class JWTAuthExtension extends Extension
 
         $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
         $loader->load('services.yml');
-        $container->setParameter('jwt_auth.domain', $config['domain']);
+        $container->setParameter('jwt_auth.authorized_issuer', $config['authorized_issuer']);
         $container->setParameter('jwt_auth.client_secret', $config['client_secret'] ?? '');
 
         $cacheService = null;
@@ -48,7 +48,7 @@ class JWTAuthExtension extends Extension
             }
 
             $serviceId = 'jwt_auth.token_verifier.' . $name;
-            $tokenVerifier = new TokenVerifier($config['domain'], $api['audience'], $signatureVerifier);
+            $tokenVerifier = new TokenVerifier($config['authorized_issuer'], $api['audience'], $signatureVerifier);
             $container->set($serviceId, $tokenVerifier);
         }
 

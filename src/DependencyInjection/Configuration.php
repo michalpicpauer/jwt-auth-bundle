@@ -14,7 +14,7 @@ class Configuration implements ConfigurationInterface
 
         $rootNode
             ->children()
-            ->scalarNode('domain')->end()
+            ->scalarNode('authorized_issuer')->end()
             ->scalarNode('client_secret')->end()
             ->arrayNode('apis')
                 ->prototype('array')
