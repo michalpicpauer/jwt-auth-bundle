@@ -50,18 +50,18 @@ class JwtUserProviderTest extends TestCase
         );
     }
 
-    public function testLoadUserByJWTWithScopeProperty()
+    public function testLoadUserByJWTWithPermissionsProperty()
     {
         $jwt = [
             'sub' => 'username',
-            'scope' => 'read:messages write:messages',
+            'permissions' => ['read:messages', 'write:messages'],
             'token' => 'validToken',
         ];
 
         $expectedUser = new User(
             'username',
             'validToken',
-            ['ROLE_JWT_AUTHENTICATED', 'ROLE_JWT_SCOPE_READ_MESSAGES', 'ROLE_JWT_SCOPE_WRITE_MESSAGES']
+            ['ROLE_JWT_AUTHENTICATED', 'ROLE_JWT_READ_MESSAGES', 'ROLE_JWT_WRITE_MESSAGES']
         );
 
         $this->assertEquals(

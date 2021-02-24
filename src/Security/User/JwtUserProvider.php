@@ -2,7 +2,6 @@
 
 namespace Auth0\JWTAuthBundle\Security\User;
 
-use Auth0\JWTAuthBundle\Security\Core\JWTUserProviderInterface;
 use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
 use Symfony\Component\Security\Core\Exception\UsernameNotFoundException;
 use Symfony\Component\Security\Core\User\User;
@@ -62,27 +61,26 @@ class JwtUserProvider implements JWTUserProviderInterface
             [
                 'ROLE_JWT_AUTHENTICATED',
             ],
-            $this->getScopesFromJwtAsRoles($jwt)
+            $this->getPermissionsFromJwtAsRoles($jwt)
         );
     }
 
     /**
      * Returns the scopes from the JSON Web Token as Symfony roles prefixed with 'ROLE_JWT_SCOPE_'.
      */
-    private function getScopesFromJwtAsRoles(array $jwt): array
+    private function getPermissionsFromJwtAsRoles(array $jwt): array
     {
-        if (isset($jwt['scope']) === false) {
+        if (isset($jwt['permissions']) === false) {
             return [];
         }
 
-        $scopes = explode(' ', $jwt['scope']);
         return array_map(
-            function ($scope) {
-                $roleSuffix = strtoupper(str_replace([':', '-'], '_', $scope));
+            function ($permission) {
+                $roleSuffix = strtoupper(str_replace([':', '-'], '_', $permission));
 
-                return sprintf('ROLE_JWT_SCOPE_%s', $roleSuffix);
+                return sprintf('ROLE_JWT_%s', $roleSuffix);
             },
-            $scopes
+            $jwt['permissions']
         );
     }
 }

@@ -3,3 +3,4 @@ jwt_auth:
     apis:
         api1:
             audience: 'api.audience'
+    cache: 'cache.app'

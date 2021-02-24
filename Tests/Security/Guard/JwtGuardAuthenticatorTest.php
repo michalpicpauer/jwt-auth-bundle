@@ -3,7 +3,7 @@
 namespace Auth0\JWTAuthBundle\Tests\Security\Guard;
 
 use Auth0\JWTAuthBundle\Security\Auth0Service;
-use Auth0\JWTAuthBundle\Security\Core\JWTUserProviderInterface;
+use Auth0\JWTAuthBundle\Security\User\JWTUserProviderInterface;
 use Auth0\JWTAuthBundle\Security\Guard\JwtGuardAuthenticator;
 use Auth0\SDK\Exception\InvalidTokenException;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -65,36 +65,26 @@ class JwtGuardAuthenticatorTest extends TestCase
             ->with('invalidToken')
             ->willThrowException(new InvalidTokenException('Malformed token.'));
 
-        $userProviderMock = $this->getMockBuilder(JWTUserProviderInterface::class)
-            ->getMock();
+        $userProviderMock = $this->createMock(JWTUserProviderInterface::class);
 
         $this->expectException(AuthenticationException::class);
         $this->expectExceptionMessage('Malformed token.');
-        $user = $this->guardAuthenticator->getUser(
-            ['jwt' => 'invalidToken'],
-            $userProviderMock
-        );
+        $this->guardAuthenticator->getUser(['jwt' => 'invalidToken'], $userProviderMock);
     }
 
     public function testGetUserReturnsUserThroughLoadUserByJWT()
     {
-        $jwt = [
-            'sub' => 'authenticated-user',
-            'token' => 'validToken',
-        ];
-
         $this->auth0Service->expects($this->once())
             ->method('decodeJWT')
             ->with('validToken')
-            ->willReturn($jwt);
+            ->willReturn(['sub' => 'authenticated-user']);
 
-        $user = new User($jwt['sub'], $jwt['token'], ['ROLE_JWT_AUTHENTICATED']);
+        $user = new User('authenticated-user', 'validToken', ['ROLE_JWT_AUTHENTICATED']);
 
-        $userProviderMock = $this->getMockBuilder(JWTUserProviderInterface::class)
-            ->getMock();
+        $userProviderMock = $this->createMock(JWTUserProviderInterface::class);
         $userProviderMock->expects($this->once())
             ->method('loadUserByJWT')
-            ->with($jwt)
+            ->with(['sub' => 'authenticated-user', 'token' => 'validToken'])
             ->willReturn($user);
 
         $returnedUser = $this->guardAuthenticator->getUser(
@@ -119,8 +109,7 @@ class JwtGuardAuthenticatorTest extends TestCase
 
         $user = new User($jwt['sub'], null, ['ROLE_JWT_AUTHENTICATED']);
 
-        $userProviderMock = $this->getMockBuilder(UserProviderInterface::class)
-            ->getMock();
+        $userProviderMock = $this->createMock(UserProviderInterface::class);
         $userProviderMock->expects($this->once())
             ->method('loadUserByUsername')
             ->with($jwt['sub'])

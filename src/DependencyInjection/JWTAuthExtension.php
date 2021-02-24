@@ -6,10 +6,10 @@ use Auth0\SDK\Helpers\JWKFetcher;
 use Auth0\SDK\Helpers\Tokens\AsymmetricVerifier;
 use Auth0\SDK\Helpers\Tokens\SymmetricVerifier;
 use Auth0\SDK\Helpers\Tokens\TokenVerifier;
-use Psr\SimpleCache\CacheInterface;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Loader;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
@@ -23,39 +23,44 @@ class JWTAuthExtension extends Extension
 
         $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
         $loader->load('services.yml');
-        $container->setParameter('jwt_auth.authorized_issuer', $config['authorized_issuer']);
-        $container->setParameter('jwt_auth.client_secret', $config['client_secret'] ?? '');
 
         $cacheService = null;
-        if (isset($config['cache']) && $container->has($config['cache'])) {
-            $cacheService = $container->get($config['cache']);
-            if (!$cacheService instanceof CacheInterface) {
-                $cacheService = null;
-            }
+        if (isset($config['cache'])) {
+            $cacheService = new Reference($config['cache']);
         }
+
         $apis = $config['apis'] ?? [];
         foreach ($apis as $name => $api) {
             if ($api['alg'] === 'RS256') {
-                $signatureVerifier = new AsymmetricVerifier(new JWKFetcher($cacheService));
+                $signatureVerifierDefinition = new Definition(
+                    AsymmetricVerifier::class,
+                    [
+                        new Definition(
+                            JWKFetcher::class,
+                            [
+                                $cacheService,
+                                ['base_uri' => $config['authorized_issuer'] . '.well-known/jwks.json'],
+                            ]
+                        ),
+                    ]
+                );
             } elseif ($api['alg'] === 'HS256') {
                 if (!isset($config['client_secret'])) {
-                    throw new InvalidConfigurationException('Client secret is missing.');
+                    throw new InvalidConfigurationException('Client secret is missing');
                 }
 
-                $signatureVerifier = new SymmetricVerifier($config['client_secret']);
+                $signatureVerifierDefinition = new Definition(SymmetricVerifier::class, [$config['client_secret']]);
             } else {
                 throw new InvalidConfigurationException('API signing algorithm is not supported: ' . $api['alg']);
             }
 
             $serviceId = 'jwt_auth.token_verifier.' . $name;
-            $tokenVerifier = new TokenVerifier($config['authorized_issuer'], $api['audience'], $signatureVerifier);
-            $container->set($serviceId, $tokenVerifier);
-        }
-
-        if (!empty($config['cache'])) {
-            $ref = new Reference($config['cache']);
-            $container->getDefinition('jwt_auth.auth0_service')
-                ->replaceArgument(6, $ref);
+            $definition = new Definition(
+                TokenVerifier::class,
+                [$config['authorized_issuer'], $api['audience'], $signatureVerifierDefinition]
+            );
+            $definition->addTag('jwt_auth.token_verifier.definition');
+            $container->setDefinition($serviceId, $definition);
         }
     }
 }

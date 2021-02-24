@@ -3,22 +3,17 @@
 namespace Auth0\JWTAuthBundle\Security\Guard;
 
 use Auth0\JWTAuthBundle\Security\Auth0Service;
-use Auth0\JWTAuthBundle\Security\Core\JWTUserProviderInterface;
-use Auth0\SDK\Exception\CoreException;
+use Auth0\JWTAuthBundle\Security\User\JWTUserProviderInterface;
 use Auth0\SDK\Exception\InvalidTokenException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
-use Symfony\Component\Security\Core\User\User;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Guard\AbstractGuardAuthenticator;
 
-/**
- * Handles authentication with JSON Web Tokens through the 'Authorization' request header.
- */
 class JwtGuardAuthenticator extends AbstractGuardAuthenticator
 {
     private Auth0Service $auth0Service;
@@ -36,7 +31,6 @@ class JwtGuardAuthenticator extends AbstractGuardAuthenticator
 
     public function getCredentials(Request $request): ?array
     {
-        // Removes the 'Bearer ' part from the Authorization header value.
         $jwt = str_replace('Bearer ', '', $request->headers->get('Authorization', ''));
 
         if (empty($jwt)) {

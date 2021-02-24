@@ -5,7 +5,7 @@ services:
 
     Auth0\JWTAuthBundle\Security\Auth0Service:
         arguments:
-            $tokenVerifiers: !tagged_iterator jwt_auth.module.definition
+            $tokenVerifiers: !tagged_iterator jwt_auth.token_verifier.definition
             $logger: '@?logger'
 
     Auth0\JWTAuthBundle\Security\Guard\JwtGuardAuthenticator: ~
