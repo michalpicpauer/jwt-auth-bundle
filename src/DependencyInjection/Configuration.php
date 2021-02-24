@@ -5,39 +5,26 @@ namespace Auth0\JWTAuthBundle\DependencyInjection;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
-/**
- * This is the class that validates and merges configuration from your app/config files
- *
- * To learn more see {@link http://symfony.com/doc/current/cookbook/bundles/extension.html#cookbook-bundles-extension-config-class}
- */
 class Configuration implements ConfigurationInterface
 {
-    /**
-     * {@inheritdoc}
-     */
-    public function getConfigTreeBuilder()
+    public function getConfigTreeBuilder(): TreeBuilder
     {
         $treeBuilder = new TreeBuilder('jwt_auth');
-        $rootNode = method_exists(TreeBuilder::class, 'getRootNode') ? $treeBuilder->getRootNode() : $treeBuilder->root('jwt_auth');
+        $rootNode = $treeBuilder->getRootNode();
 
         $rootNode
             ->children()
-            ->scalarNode('api_secret')->defaultValue('')->end()
-            ->scalarNode('domain')->defaultValue('')->end()
-            ->scalarNode('api_identifier')->defaultValue('')->end()
-            ->scalarNode('api_client_id')->defaultValue('')->end()
-            ->arrayNode('api_identifier_array')
-                ->prototype('scalar')->end()
-            ->end()
-            ->variableNode('authorized_issuer')->defaultValue([])->end()
-            ->arrayNode('supported_algs')
-                ->addDefaultChildrenIfNoneSet(1)
-                ->prototype('scalar')
-                ->defaultValue('RS256')
+            ->scalarNode('domain')->end()
+            ->scalarNode('client_secret')->end()
+            ->arrayNode('apis')
+                ->prototype('array')
+                    ->children()
+                        ->scalarNode('audience')->end()
+                        ->scalarNode('alg')->defaultValue('RS256')->end()
+                    ->end()
                 ->end()
             ->end()
-            ->scalarNode('secret_base64_encoded')->defaultValue(false)->end()
-            ->scalarNode('cache')->defaultNull()->info('The cache service you want to use. Example "jwt_auth.cache.file_system".')->end();
+            ->scalarNode('cache')->defaultNull()->info('The cache service you want to use.')->end();
 
         return $treeBuilder;
     }

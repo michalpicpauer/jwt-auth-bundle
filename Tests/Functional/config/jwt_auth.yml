@@ -1,0 +1,5 @@
+jwt_auth:
+    domain: domain
+    apis:
+        api1:
+            audience: 'api.audience'

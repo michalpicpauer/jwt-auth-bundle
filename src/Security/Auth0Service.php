@@ -2,87 +2,49 @@
 
 namespace Auth0\JWTAuthBundle\Security;
 
-use Auth0\SDK\Helpers\Cache\CacheHandler;
-use Auth0\SDK\JWTVerifier;
-use Auth0\SDK\Auth0Api;
-use Auth0\SDK\API\Authentication;
+use Auth0\SDK\Exception\InvalidTokenException;
+use Auth0\SDK\Helpers\Tokens\TokenVerifier;
+use Psr\Log\LoggerInterface;
 
-/**
- * @author german
- *
- * Service that provides access to the Auth0 SDK and JWT validation
- */
-class Auth0Service {
+class Auth0Service
+{
+    /** @var iterable|TokenVerifier[] */
+    private iterable $tokenVerifiers;
 
-    private $api_secret;
-    private $api_identifier;
-    private $authorized_issuer;
-    private $secret_base64_encoded;
-    private $supported_algs;
-    private $authApi;
+    private ?LoggerInterface $logger;
 
-    /**
-     * @var CacheHandler|null
-     */
-    private $cache;
-
-    /**
-     * Auth0Service constructor.
-     *
-     * @param string $api_secret
-     * @param string $domain
-     * @param array|string $api_identifier
-     * @param array|string $authorized_issuer
-     * @param boolean $secret_base64_encoded
-     * @param array $supported_algs
-     * @param CacheHandler|null $cache
-     */
-    public function __construct($api_secret, $domain, $api_identifier, $authorized_issuer, $secret_base64_encoded, $supported_algs, CacheHandler $cache = null)
+    public function __construct(iterable $tokenVerifiers, ?LoggerInterface $logger)
     {
-        $this->api_secret = $api_secret;
-        $this->api_identifier = $api_identifier;
-        $this->authorized_issuer = $authorized_issuer;
-        $this->secret_base64_encoded = $secret_base64_encoded;
-        $this->supported_algs = $supported_algs;
-        $this->cache = $cache;
-
-        $this->authApi = new Authentication($domain);
-    }
-
-    /**
-     * Get the Auth0 User Profile based on the JWT (and validate it).
-     *
-     * @param string $jwt The encoded JWT token
-     *
-     * @return array info as described in https://auth0.com/docs/users/concepts/overview-user-profile
-     */
-    public function getUserProfileByA0UID($jwt)
-    {
-        return $this->authApi->userinfo($jwt);
+        $this->tokenVerifiers = $tokenVerifiers;
+        $this->logger = $logger;
     }
 
     /**
      * Decodes the JWT and validate it
-     *
-     * @return \stdClass
+     * @throws InvalidTokenException
      */
-    public function decodeJWT($encToken)
+    public function decodeJWT(string $encodedToken): array
     {
-        $config = [
-            // The api_identifier setting could come through as an array or a string.
-            'valid_audiences' => is_array($this->api_identifier) ? $this->api_identifier : [$this->api_identifier],
-            'client_secret' => $this->api_secret,
-            'authorized_iss' => is_array($this->authorized_issuer) ? $this->authorized_issuer : [$this->authorized_issuer],
-            'supported_algs' => $this->supported_algs,
-            'secret_base64_encoded' => $this->secret_base64_encoded
-        ];
-
-        if (null !== $this->cache) {
-            $config['cache'] = $this->cache;
+        foreach ($this->tokenVerifiers as $verifier) {
+            try {
+                return $verifier->verify($encodedToken);
+            } catch (InvalidTokenException $e) {
+                $this->logMessage(
+                    'Verifier was unable to verify the token. {message}',
+                    ['message' => $e->getMessage()]
+                );
+            }
         }
 
-        $verifier = new JWTVerifier($config);
+        throw new InvalidTokenException('Any verifier could not verify the token.');
+    }
 
-        return $verifier->verifyAndDecode($encToken);
+    private function logMessage(string $message, array $context)
+    {
+        if (!$this->logger) {
+            return;
+        }
+
+        $this->logger->info($message, $context);
     }
 }

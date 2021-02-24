@@ -4,67 +4,44 @@ namespace Auth0\JWTAuthBundle\Security\Core;
 
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 
-/**
- * @author german
- */
 class JWTInfoNotFoundException extends AuthenticationException
 {
-    private $jwt;
+    private string $jwt;
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getMessageKey()
-    {
-        return 'JWT could not be found.';
-    }
-
-    /**
-     * Get the username.
-     *
-     * @return string
-     */
-    public function getJWT()
+    public function getJWT(): string
     {
         return $this->jwt;
     }
 
-    /**
-     * Set the username.
-     *
-     * @param string $username
-     */
-    public function setJWT($jwt)
+    public function setJWT(string $jwt): void
     {
         $this->jwt = $jwt;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function serialize()
+    public function getMessageKey(): string
     {
-        return serialize(array(
-            $this->jwt,
-            parent::serialize(),
-        ));
+        return 'JWT could not be found.';
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function unserialize($str)
+    public function serialize(): string
     {
-        list($this->jwt, $parentData) = unserialize($str);
+        return serialize(
+            [
+                $this->jwt,
+                parent::serialize(),
+            ]
+        );
+    }
+
+    public function unserialize($str): void
+    {
+        [$this->jwt, $parentData] = unserialize($str);
 
         parent::unserialize($parentData);
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function getMessageData()
+    public function getMessageData(): array
     {
-        return array('{{ jwt }}' => $this->jwt);
+        return ['{{ jwt }}' => $this->jwt];
     }
 }

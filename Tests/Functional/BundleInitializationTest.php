@@ -1,27 +1,31 @@
 <?php
 
-namespace Auth0\JWTAuthBundle\Tests\Security;
-
+namespace Auth0\JWTAuthBundle\Tests\Functional;
 
 use Auth0\JWTAuthBundle\JWTAuthBundle;
 use Auth0\JWTAuthBundle\Security\Auth0Service;
 use Nyholm\BundleTest\BaseBundleTestCase;
-
+use Nyholm\BundleTest\CompilerPass\PublicServicePass;
 
 class BundleInitializationTest extends BaseBundleTestCase
 {
-    protected function getBundleClass()
+    public function setUp(): void
     {
-        return JWTAuthBundle::class;
+        parent::setUp();
+
+        $this->addCompilerPass(new PublicServicePass());
     }
 
-    public function testInitBundle()
+    public function testInitBundle(): void
     {
-        // Boot the kernel.
-        $this->bootKernel();
+        $kernel = $this->createKernel();
+        $kernel->addConfigFile(__DIR__ . '/config/jwt_auth.yml');
+
+        // Boot kernel
+        $kernel->boot();
 
         // Get the container
-        $container = $this->getContainer();
+        $container = $kernel->getContainer();
 
         // Test if you services exists
         $this->assertTrue($container->has('jwt_auth.auth0_service'));
@@ -34,19 +38,8 @@ class BundleInitializationTest extends BaseBundleTestCase
         $this->assertInstanceOf(Auth0Service::class, $service);
     }
 
-    public function testBundleWithCache()
+    protected function getBundleClass(): string
     {
-        // Create a new Kernel
-        $kernel = $this->createKernel();
-
-        // Add some configuration
-        $kernel->addConfigFile(__DIR__.'/config/cache.yml');
-
-        // Boot the kernel as normal ...
-        $this->bootKernel();
-
-        $container = $this->getContainer();
-        $service = $container->get('jwt_auth.auth0_service');
-        $this->assertInstanceOf(Auth0Service::class, $service);
+        return JWTAuthBundle::class;
     }
 }

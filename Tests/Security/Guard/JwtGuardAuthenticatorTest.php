@@ -6,9 +6,8 @@ use Auth0\JWTAuthBundle\Security\Auth0Service;
 use Auth0\JWTAuthBundle\Security\Core\JWTUserProviderInterface;
 use Auth0\JWTAuthBundle\Security\Guard\JwtGuardAuthenticator;
 use Auth0\SDK\Exception\InvalidTokenException;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use PHPUnit_Framework_MockObject_MockObject;
-use stdClass;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -21,31 +20,11 @@ use Symfony\Component\Security\Core\User\UserProviderInterface;
  */
 class JwtGuardAuthenticatorTest extends TestCase
 {
-    /**
-     * @var JwtGuardAuthenticator
-     */
-    private $guardAuthenticator;
+    private JwtGuardAuthenticator $guardAuthenticator;
 
-    /**
-     * @var Auth0Service|PHPUnit_Framework_MockObject_MockObject
-     */
+    /** @var Auth0Service|MockObject */
     private $auth0Service;
 
-    /**
-     * Creates a JwtGuardAuthenticator instance for testing.
-     */
-    protected function setUp()
-    {
-        $this->auth0Service = $this->getMockBuilder(Auth0Service::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-
-        $this->guardAuthenticator = new JwtGuardAuthenticator($this->auth0Service);
-    }
-
-    /**
-     * Tests if JwtGuardAuthenticator::supports returns false when the Request does not contain an Authorization header.
-     */
     public function testSupportsReturnsFalseWhenRequestDoesNotContainAuthorizationHeader()
     {
         $request = Request::create('/');
@@ -53,9 +32,6 @@ class JwtGuardAuthenticatorTest extends TestCase
         $this->assertFalse($this->guardAuthenticator->supports($request));
     }
 
-    /**
-     * Tests if JwtGuardAuthenticator::supports returns true when the Request contains an Authorization header.
-     */
     public function testSupportsReturnsTrueWhenRequestContainsAuthorizationHeader()
     {
         $request = Request::create('/');
@@ -64,10 +40,6 @@ class JwtGuardAuthenticatorTest extends TestCase
         $this->assertTrue($this->guardAuthenticator->supports($request));
     }
 
-    /**
-     * Tests if JwtGuardAuthenticator::getCredentials returns null when the Request does not contain
-     * an Authorization header.
-     */
     public function testGetCredentialsReturnsNullWhenRequestDoesNotContainAuthorizationHeader()
     {
         $request = Request::create('/');
@@ -75,10 +47,6 @@ class JwtGuardAuthenticatorTest extends TestCase
         $this->assertNull($this->guardAuthenticator->getCredentials($request));
     }
 
-    /**
-     * Tests if JwtGuardAuthenticator::getCredentials returns an array with the 'jwt' key (that should
-     * contain the JWT token) when the Request contains an Authorization header.
-     */
     public function testGetCredentialsReturnsArrayWithJwtWhenRequestContainsAuthorizationHeader()
     {
         $request = Request::create('/');
@@ -90,11 +58,7 @@ class JwtGuardAuthenticatorTest extends TestCase
         );
     }
 
-    /**
-     * Tests if JwtGuardAuthenticator::getUser return an unknown User instance when decoding the JSON Web Token fails,
-     * because verification of the token must be done during the JwtGuardAuthenticator::checkCredentials step.
-     */
-    public function testGetUserReturnsUnknownUserWhenJwtDecodingFails()
+    public function testGetUserThrowsAuthenticationExceptionWhenJwtDecodingFails()
     {
         $this->auth0Service->expects($this->once())
             ->method('decodeJWT')
@@ -103,38 +67,28 @@ class JwtGuardAuthenticatorTest extends TestCase
 
         $userProviderMock = $this->getMockBuilder(JWTUserProviderInterface::class)
             ->getMock();
-        $userProviderMock->expects($this->never())
-            ->method('loadUserByJWT');
-        $userProviderMock->expects($this->never())
-            ->method('loadUserByUsername');
 
+        $this->expectException(AuthenticationException::class);
+        $this->expectExceptionMessage('Malformed token.');
         $user = $this->guardAuthenticator->getUser(
             ['jwt' => 'invalidToken'],
             $userProviderMock
         );
-
-        $this->assertInstanceOf(User::class, $user);
-        $this->assertSame('unknown', $user->getUsername());
-        $this->assertNull($user->getPassword());
-        $this->assertSame([], $user->getRoles());
     }
 
-    /**
-     * Tests if JwtGuardAuthenticator::getUser calls the JWTUserProviderInterface::loadUserByJWT when the provided
-     * user provider implements the interface.
-     */
     public function testGetUserReturnsUserThroughLoadUserByJWT()
     {
-        $jwt = new stdClass();
-        $jwt->sub = 'authenticated-user';
-        $jwt->token = 'validToken';
+        $jwt = [
+            'sub' => 'authenticated-user',
+            'token' => 'validToken',
+        ];
 
         $this->auth0Service->expects($this->once())
             ->method('decodeJWT')
             ->with('validToken')
             ->willReturn($jwt);
 
-        $user = new User($jwt->sub, $jwt->token, ['ROLE_JWT_AUTHENTICATED']);
+        $user = new User($jwt['sub'], $jwt['token'], ['ROLE_JWT_AUTHENTICATED']);
 
         $userProviderMock = $this->getMockBuilder(JWTUserProviderInterface::class)
             ->getMock();
@@ -151,28 +105,25 @@ class JwtGuardAuthenticatorTest extends TestCase
         $this->assertSame($user, $returnedUser);
     }
 
-    /**
-     * Tests if JwtGuardAuthenticator::getUser calls the UserProviderInterface::loadUserByUsername when the provided
-     * user provider does not implement the JWTUserProviderInterface.
-     */
     public function testGetUserReturnsUserThroughLoadUserByUsername()
     {
-        $jwt = new stdClass();
-        $jwt->sub = 'authenticated-user';
-        $jwt->token = 'validToken';
+        $jwt = [
+            'sub' => 'authenticated-user',
+            'token' => 'validToken',
+        ];
 
         $this->auth0Service->expects($this->once())
             ->method('decodeJWT')
             ->with('validToken')
             ->willReturn($jwt);
 
-        $user = new User($jwt->sub, null, ['ROLE_JWT_AUTHENTICATED']);
+        $user = new User($jwt['sub'], null, ['ROLE_JWT_AUTHENTICATED']);
 
         $userProviderMock = $this->getMockBuilder(UserProviderInterface::class)
             ->getMock();
         $userProviderMock->expects($this->once())
             ->method('loadUserByUsername')
-            ->with($jwt->sub)
+            ->with($jwt['sub'])
             ->willReturn($user);
 
         $returnedUser = $this->guardAuthenticator->getUser(['jwt' => 'validToken'], $userProviderMock);
@@ -180,35 +131,8 @@ class JwtGuardAuthenticatorTest extends TestCase
         $this->assertSame($user, $returnedUser);
     }
 
-    /**
-     * Tests if JwtGuardAuthenticator::checkCredentials throws an AuthenticationException containing the information
-     * from the exception thrown by the Auth0Service.
-     * @expectedException Symfony\Component\Security\Core\Exception\AuthenticationException
-     * @expectedExceptionMessage Malformed token.
-     */
-    public function testCheckCredentialsThrowsAuthenticationExceptionWhenJwtDecodingFails()
-    {
-        $this->auth0Service->expects($this->once())
-            ->method('decodeJWT')
-            ->with('invalidToken')
-            ->willThrowException(new InvalidTokenException('Malformed token.'));
-
-        $this->guardAuthenticator->checkCredentials(
-            ['jwt' => 'invalidToken'],
-            new User('unknown', null)
-        );
-    }
-
-    /**
-     * Tests if JwtGuardAuthenticator::checkCredentials returns true when decoding the JSON Web Token is successful.
-     */
     public function testCheckCredentialsReturnsTrueWhenJwtDecodingSuccessful()
     {
-        $this->auth0Service->expects($this->once())
-            ->method('decodeJWT')
-            ->with('validToken')
-            ->willReturn(new stdClass());
-
         $this->assertTrue(
             $this->guardAuthenticator->checkCredentials(
                 ['jwt' => 'validToken'],
@@ -217,10 +141,6 @@ class JwtGuardAuthenticatorTest extends TestCase
         );
     }
 
-    /**
-     * Tests if JwtGuardAuthenticator::onAuthenticationSuccess does not return a Response, meaning the application will
-     * continue with the original request.
-     */
     public function testOnAuthenticationSuccess()
     {
         $request = Request::create('/');
@@ -233,9 +153,6 @@ class JwtGuardAuthenticatorTest extends TestCase
         );
     }
 
-    /**
-     * Tests if JwtGuardAuthenticator::onAuthenticationFailure returns JSON response with a '403 Forbidden' status code.
-     */
     public function testOnAuthenticationFailure()
     {
         $request = Request::create('/');
@@ -251,9 +168,6 @@ class JwtGuardAuthenticatorTest extends TestCase
         );
     }
 
-    /**
-     * Tests if JwtGuardAuthenticator::start returns a JSON response with a '401 Unauthorized' status code.
-     */
     public function testStart()
     {
         $request = Request::create('/');
@@ -268,12 +182,17 @@ class JwtGuardAuthenticatorTest extends TestCase
         );
     }
 
-    /**
-     * Tests if JwtGuardAuthenticator::supportsRememberMe returns false. The Authorization header must be provided
-     * with every request.
-     */
     public function testSupportsRememberMe()
     {
         $this->assertFalse($this->guardAuthenticator->supportsRememberMe());
+    }
+
+    protected function setUp(): void
+    {
+        $this->auth0Service = $this->getMockBuilder(Auth0Service::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+
+        $this->guardAuthenticator = new JwtGuardAuthenticator($this->auth0Service);
     }
 }
